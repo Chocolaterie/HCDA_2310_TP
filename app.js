@@ -25,12 +25,6 @@ const app = express();
 // Autoriser envoyer json dans le body
 app.use(express.json());
 
-// Simulation de données en mémoire
-let DB_ARTICLES = [
-    { id: 1, title: 'Premier article', content: 'Contenu du premier article', author: 'Isaac' },
-    { id: 2, title: 'Deuxième article', content: 'Contenu du deuxième article', author: 'Sanchez' },
-    { id: 3, title: 'Troisième article', content: 'Contenu du troisième article', author: 'Toto' }
-];
 
 // ----------------------------------------------------
 // * ROUTES
@@ -40,7 +34,13 @@ app.get('/articles', async (request, response) => {
     // Récupérer les articles via mongo
     const articles = await Article.find();
 
-    response.json(articles);
+    // RG-001 : Récupérer les articles
+    const responseService = {
+        code : "200",
+        message : "La liste des articles a été récupérés avec succès",
+        data : articles
+    }
+    return response.json(responseService);
 });
 
 app.get('/article/:id', async (request, response) => {
@@ -53,23 +53,47 @@ app.get('/article/:id', async (request, response) => {
 
     // Si je ne trouve pas
     if (!foundArticle){
-        return response.json({ message : `L'article ayant l'id ${id} n'existe pas`});
+        // RG-002 : 702
+        const responseService = {
+            code : "702",
+            message :`Impossible de récupérer un article avec l'UID ${id}`,
+            data : null
+        }
+        return response.json(responseService);
     }
 
-    // T'as trouvé
-    return response.json(foundArticle);
+    // RG-002 : 200
+    const responseService = {
+        code : "200",
+        message :`Article récupéré avec succès`,
+        data : foundArticle
+    }
+    return response.json(responseService);
 });
 
 app.post('/save-article', async (request, response) => {
     // Récupérer l'article envoyé
     const articleJson = request.body;
+    const idArticle = Number.parseInt(articleJson.id);
 
     // UPDATE
     // Essaye de trouver un article existant si dans l'article envoyé y'a un id
     if (articleJson.id){
+        // RG-004 701 : Titre unique
+        // ATTENTION : Exclure moi même (l'article qu'on modifie) dans la recherche des doublons de titre
+        const foundArticleByTitle = await Article.findOne({ id : {$ne : idArticle}, title : articleJson.title });
+        if (foundArticleByTitle){
+            const responseService = {
+                code : "701",
+                message :`Impossible de modifier un article avec un titre déjà existant `,
+                data : null
+            }
+            return response.json(responseService);
+        }
+
         // On veut modifier
         // -- récuperer et modifier
-        let article = await Article.findOne({ id : articleJson.id });
+        let article = await Article.findOne({ id : idArticle });
 
         article.title = articleJson.title
         article.content = articleJson.content
@@ -78,11 +102,27 @@ app.post('/save-article', async (request, response) => {
         // -- save
         await article.save();
 
-        // Return = Arreter le code et envoye l'article modifié
-        return response.json(article);
+        // RG-003 : 200
+        const responseService = {
+            code : "200",
+            message :`Article modifié avec succès`,
+            data : article
+        }
+        return response.json(responseService);
     }
   
     // CREATE
+    // RG-003 701 : Titre unique
+    const foundArticleByTitle = await Article.findOne({ title : articleJson.title });
+    if (foundArticleByTitle){
+        const responseService = {
+            code : "701",
+            message :`Impossible d'ajouter un article avec un titre déjà existant`,
+            data : null
+        }
+        return response.json(responseService);
+    }
+
     // Si y'a pas l'id c'est une création
     // -- generer un id
     // -- compter combien d'article en base
@@ -94,9 +134,14 @@ app.post('/save-article', async (request, response) => {
     const article = new Article(articleJson);
 
     await article.save();
-
-    // Retourner le json l'article crée
-    return response.json(articleJson);
+    
+    // RG-003 : 200
+    const responseService = {
+        code : "200",
+        message :`Article ajouté avec succès`,
+        data : article
+    }
+    return response.json(responseService);
 });
 
 app.delete('/article/:id', async (request, response) => {
@@ -109,13 +154,25 @@ app.delete('/article/:id', async (request, response) => {
 
     // Une erreur si trouve pas l'article
     if (!articleToDelete){
-        return response.json({ message : `Impossible de supprimer un article inexistant`});  
+        // RG-005 : 702
+        const responseService = {
+            code : "702",
+            message : `Impossible de supprimer un article dont l'UID n'existe pas`,
+            data : null
+        }
+        return response.json(responseService);
     }
 
     // - supprimer
     await articleToDelete.deleteOne();
 
-    return response.json({ message : `Article ${id} supprimé avec succès`});
+    // RG-005 : 200
+    const responseService = {
+        code : "200",
+        message :`L'article ${id} a été supprimé avec succès`,
+        data : articleToDelete
+    }
+    return response.json(responseService);
 });
 
 // ----------------------------------------------------
