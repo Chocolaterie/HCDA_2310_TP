@@ -31,6 +31,10 @@ const app = express();
 // Autoriser envoyer json dans le body
 app.use(express.json());
 
+// Autoriser tout le monde à taper le back
+const cors = require('cors');
+app.use(cors());
+
 // ---------------------------------------------------------------------------
 // SWAGGER UI
 // ---------------------------------------------------------------------------
