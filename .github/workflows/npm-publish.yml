@@ -38,7 +38,7 @@ jobs:
           target: /home/my_app/
 
       - name: Run remote script
-        uses: appleboy/ssh-action@masterr
+        uses: appleboy/ssh-action@master
         with:
           host: 161.35.39.34
           username: root
