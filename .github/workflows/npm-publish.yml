@@ -35,6 +35,6 @@ jobs:
           username: root
           password: cHocolati31ne
           source: "*"
-          target: /home/
+          target: /home/my_app/
           
         
