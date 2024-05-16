@@ -107,7 +107,7 @@ app.get('/articles', async (request, response) => {
 
     // RG-001 : Récupérer les articles
     const responseService = {
-        code : "200",
+        code : "202",
         message : "La liste des articles a été récupérés avec succès",
         data : articles
     }
