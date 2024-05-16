@@ -37,6 +37,52 @@ app.use(express.json());
 const swaggerUI = require('swagger-ui-express');
 const swaggerDocument = require('./swagger_output.json'); // récupérer la doc gen
 
+// =========================================================
+// LOGGER CONFIG 
+// =========================================================
+const winston = require('winston');
+
+// -- configuer le logger
+const logger = winston.createLogger({
+    // Log only if level is less than (meaning more severe) or equal to this
+    level: "info",
+    // Use timestamp and printf to create a standard log format
+    format: winston.format.combine(
+      winston.format.timestamp(),
+      winston.format.printf(
+        (info) => `${info.timestamp} ${info.level}: ${info.message}`
+      )
+    ),
+    // Log to the console and a file
+    transports: [
+      new winston.transports.Console(),
+      new winston.transports.File({ filename: "logs/app.log" }),
+    ],
+  });
+
+/**
+ * 
+ * @param {*} response Réponse HTTP
+ * @param {*} code Code métier
+ * @param {*} message Message métier
+ * @param {*} data La donnéte
+ * @returns 
+ */
+function performResponseService(response, code, message, data=null) {
+    const responseService = {
+        code : code,
+        message : message,
+        data : data
+    };
+
+    // Avant d'envoyer une réponse JSON
+    // LOGGER la réponse
+    logger.info(`Code : ${responseService.code} - Message : ${responseService.message}`);
+
+    // Envoyer une réponse JSON
+    return response.json(responseService);
+}
+
 // init/conf la swagger
 // Injecter toute l'application swagger dans l'url /api-docs
 app.use('/api-docs', swaggerUI.serve, swaggerUI.setup(swaggerDocument));
@@ -46,12 +92,7 @@ async function middlewareJWT(request, response, next){
 
     // RG-658-01 : Test si header est valide (erreur si pas valide)
     if (!request.headers.authorization){
-        const responseService = {
-            code : "756",
-            message : `Le token doit être renseigné`,
-            data : null
-        }
-        return response.json(responseService);
+        return performResponseService(response, "756", `Le token doit être renseigné`);
     }
 
     // RG-658-02 : Tester token valide (erreur si pas valide)
@@ -65,12 +106,8 @@ async function middlewareJWT(request, response, next){
 
     // Si pas valide erreur métier
     if (!valid){
-        const responseService = {
-            code : "789",
-            message : `Le token n'est pas valide`,
-            data : null
-        }
-        return response.json(responseService);
+        return performResponseService(response, "789", `Le token n'est pas valide`);
+
     }
 
     // Par défaut si aucune erreur
@@ -90,25 +127,13 @@ app.post('/auth', async (request, response) => {
     // Si couple email/password invalide
     if (!loggedUser){
         // retourner l'erreur dans la réponse métier
-        const responseService = {
-            code : "704",
-            message : `Couple email/mot de passe incorrect`,
-            data : null
-        }
-    
-        return response.json(responseService);
+        return performResponseService(response, "704", `Couple email/mot de passe incorrect`);
     }
 
     // Génére un token
     const token = jwt.sign({ email : loggedUser.email }, SECRET_JWT_KEY, { expiresIn: '60s' });
 
-    const responseService = {
-        code : "200",
-        message : `Authentification avec succès`,
-        data : token
-    };
-
-    return response.json(responseService);
+    return performResponseService(response, "200", `Authentification avec succès`, token);
 });
 
 
@@ -118,12 +143,7 @@ app.get('/articles', async (request, response) => {
     const articles = await Article.find();
 
     // RG-001 : Récupérer les articles
-    const responseService = {
-        code : "200",
-        message : "La liste des articles a été récupérés avec succès",
-        data : articles
-    }
-    return response.json(responseService);
+    return performResponseService(response, "200", "La liste des articles a été récupérés avec succès", articles);
 });
 
 app.get('/article/:id', async (request, response) => {
@@ -137,21 +157,11 @@ app.get('/article/:id', async (request, response) => {
     // Si je ne trouve pas
     if (!foundArticle){
         // RG-002 : 702
-        const responseService = {
-            code : "702",
-            message :`Impossible de récupérer un article avec l'UID ${id}`,
-            data : null
-        }
-        return response.json(responseService);
+        return performResponseService(response, "702", `Impossible de récupérer un article avec l'UID ${id}`);
     }
 
     // RG-002 : 200
-    const responseService = {
-        code : "200",
-        message :`Article récupéré avec succès`,
-        data : foundArticle
-    }
-    return response.json(responseService);
+    return performResponseService(response, "200", `Article récupéré avec succès`, foundArticle);
 });
 
 app.post('/save-article', middlewareJWT, async (request, response) => {
@@ -166,12 +176,7 @@ app.post('/save-article', middlewareJWT, async (request, response) => {
         // ATTENTION : Exclure moi même (l'article qu'on modifie) dans la recherche des doublons de titre
         const foundArticleByTitle = await Article.findOne({ id : {$ne : idArticle}, title : articleJson.title });
         if (foundArticleByTitle){
-            const responseService = {
-                code : "701",
-                message :`Impossible de modifier un article avec un titre déjà existant `,
-                data : null
-            }
-            return response.json(responseService);
+            return performResponseService(response, "701", `Impossible de modifier un article avec un titre déjà existant`);
         }
 
         // On veut modifier
@@ -186,24 +191,14 @@ app.post('/save-article', middlewareJWT, async (request, response) => {
         await article.save();
 
         // RG-003 : 200
-        const responseService = {
-            code : "200",
-            message :`Article modifié avec succès`,
-            data : article
-        }
-        return response.json(responseService);
+        return performResponseService(response, "200", `Article modifié avec succès`, article);
     }
   
     // CREATE
     // RG-003 701 : Titre unique
     const foundArticleByTitle = await Article.findOne({ title : articleJson.title });
     if (foundArticleByTitle){
-        const responseService = {
-            code : "701",
-            message :`Impossible d'ajouter un article avec un titre déjà existant`,
-            data : null
-        }
-        return response.json(responseService);
+        return performResponseService(response, "701", `Impossible d'ajouter un article avec un titre déjà existant`);
     }
 
     // Si y'a pas l'id c'est une création
@@ -219,12 +214,7 @@ app.post('/save-article', middlewareJWT, async (request, response) => {
     await article.save();
     
     // RG-003 : 200
-    const responseService = {
-        code : "200",
-        message :`Article ajouté avec succès`,
-        data : article
-    }
-    return response.json(responseService);
+    return performResponseService(response, "200", `Article ajouté avec succès`, article);
 });
 
 app.delete('/article/:id', middlewareJWT, async (request, response) => {
@@ -238,24 +228,14 @@ app.delete('/article/:id', middlewareJWT, async (request, response) => {
     // Une erreur si trouve pas l'article
     if (!articleToDelete){
         // RG-005 : 702
-        const responseService = {
-            code : "702",
-            message : `Impossible de supprimer un article dont l'UID n'existe pas`,
-            data : null
-        }
-        return response.json(responseService);
+        return performResponseService(response, "702", `Impossible de supprimer un article dont l'UID n'existe pas`);
     }
 
     // - supprimer
     await articleToDelete.deleteOne();
 
     // RG-005 : 200
-    const responseService = {
-        code : "200",
-        message :`L'article ${id} a été supprimé avec succès`,
-        data : articleToDelete
-    }
-    return response.json(responseService);
+    return performResponseService(response, "200", `L'article ${id} a été supprimé avec succès`, articleToDelete);
 });
 
 // ----------------------------------------------------
