@@ -1,6 +1,9 @@
 const express = require('express');
-
 const mongoose = require('mongoose');
+
+// JWT
+const jwt = require('jsonwebtoken');
+const SECRET_JWT_KEY="pain_au_chocolat";
 
 // Connecte à la bdd
 mongoose.connect("mongodb://127.0.0.1:27017/db_article");
@@ -19,16 +22,86 @@ mongoose.connection.on('error', () => {
 // 1 : Le nom de module - 2 : Les attributs du model - 3: Le nom de table/collection 
 const Article = mongoose.model("Article", { id: Number, title : String, content : String, author : String }, "articles");
 
+// -- Modèle User (utilisé pour l'authentification)
+const User = mongoose.model("User", { email: String, password : String }, "users");
+
 // APP
 const app = express();
 
 // Autoriser envoyer json dans le body
 app.use(express.json());
 
+// Middleware JWT
+async function middlewareJWT(request, response, next){
+
+    // RG-658-01 : Test si header est valide (erreur si pas valide)
+    if (!request.headers.authorization){
+        const responseService = {
+            code : "756",
+            message : `Le token doit être renseigné`,
+            data : null
+        }
+        return response.json(responseService);
+    }
+
+    // RG-658-02 : Tester token valide (erreur si pas valide)
+    const token = request.headers.authorization.substring(7);
+
+    // Tester la validté du token (en vie ? existe ? etc)
+    let valid = false;
+    await jwt.verify(token, SECRET_JWT_KEY, (err, decoded) => {
+        return valid = !err;
+    });
+
+    // Si pas valide erreur métier
+    if (!valid){
+        const responseService = {
+            code : "789",
+            message : `Le token n'est pas valide`,
+            data : null
+        }
+        return response.json(responseService);
+    }
+
+    // Par défaut si aucune erreur
+    return next();
+}
 
 // ----------------------------------------------------
 // * ROUTES
 // ----------------------------------------------------
+app.post('/auth', async (request, response) => {
+    // RG 056 : Tester couple email mot de passe (connexion user)
+    const formDataJSON = request.body;
+
+    // Chercher un user en base avec le couple email/password
+    const loggedUser = await User.findOne({ email : formDataJSON.email, password : formDataJSON.password});
+
+    // Si couple email/password invalide
+    if (!loggedUser){
+        // retourner l'erreur dans la réponse métier
+        const responseService = {
+            code : "704",
+            message : `Couple email/mot de passe incorrect`,
+            data : null
+        }
+    
+        return response.json(responseService);
+    }
+
+    // Génére un token
+    const token = jwt.sign({ email : loggedUser.email }, SECRET_JWT_KEY, { expiresIn: '60s' });
+
+    const responseService = {
+        code : "200",
+        message : `Authentification avec succès`,
+        data : token
+    };
+
+    return response.json(responseService);
+});
+
+
 app.get('/articles', async (request, response) => {
 
     // Récupérer les articles via mongo
@@ -71,7 +144,7 @@ app.get('/article/:id', async (request, response) => {
     return response.json(responseService);
 });
 
-app.post('/save-article', async (request, response) => {
+app.post('/save-article', middlewareJWT, async (request, response) => {
     // Récupérer l'article envoyé
     const articleJson = request.body;
     const idArticle = Number.parseInt(articleJson.id);
@@ -144,7 +217,7 @@ app.post('/save-article', async (request, response) => {
     return response.json(responseService);
 });
 
-app.delete('/article/:id', async (request, response) => {
+app.delete('/article/:id', middlewareJWT, async (request, response) => {
 
     // PARSER EN ENTIER l'ID de la requête (dans l'url)
     const id = Number.parseInt(request.params.id);
