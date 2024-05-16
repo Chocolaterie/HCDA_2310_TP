@@ -5,26 +5,6 @@ const mongoose = require('mongoose');
 const jwt = require('jsonwebtoken');
 const SECRET_JWT_KEY="pain_au_chocolat";
 
-// Connecte à la bdd
-mongoose.connect("mongodb://127.0.0.1:27017/db_article");
-
-// Afficher un message quand connectioné avec succès
-mongoose.connection.once('open', () => {
-    console.log(`Connecté(e) à la base`);
-});
-
-// Afficher message erreur si pas connecté
-mongoose.connection.on('error', () => {
-    console.log(`Erreur de connection à la base`);
-})
-
-// Déclarer le modele Article
-// 1 : Le nom de module - 2 : Les attributs du model - 3: Le nom de table/collection 
-const Article = mongoose.model("Article", { id: Number, title : String, content : String, author : String }, "articles");
-
-// -- Modèle User (utilisé pour l'authentification)
-const User = mongoose.model("User", { email: String, password : String }, "users");
-
 // APP
 const app = express();
 
@@ -85,6 +65,7 @@ app.post('/auth', async (request, response) => {
     const formDataJSON = request.body;
 
     // Chercher un user en base avec le couple email/password
+    /*
     const loggedUser = await User.findOne({ email : formDataJSON.email, password : formDataJSON.password});
 
     // Si couple email/password invalide
@@ -98,9 +79,10 @@ app.post('/auth', async (request, response) => {
     
         return response.json(responseService);
     }
+    */
 
     // Génére un token
-    const token = jwt.sign({ email : loggedUser.email }, SECRET_JWT_KEY, { expiresIn: '60s' });
+    const token = jwt.sign({ email : "toto" }, SECRET_JWT_KEY, { expiresIn: '60s' });
 
     const responseService = {
         code : "200",
@@ -111,11 +93,17 @@ app.post('/auth', async (request, response) => {
     return response.json(responseService);
 });
 
+let DB_ARTICLES = [
+    { id: 1, title: 'Premier article', content: 'Contenu du premier article', author: 'Isaac' },
+    { id: 2, title: 'Deuxième article', content: 'Contenu du deuxième article', author: 'Sanchez' },
+    { id: 3, title: 'Troisième article', content: 'Contenu du troisième article', author: 'Toto' }
+];
+
 
 app.get('/articles', async (request, response) => {
 
     // Récupérer les articles via mongo
-    const articles = await Article.find();
+    const articles = DB_ARTICLES;
 
     // RG-001 : Récupérer les articles
     const responseService = {
