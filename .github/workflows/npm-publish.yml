@@ -36,5 +36,5 @@ jobs:
           password: cHocolati31ne
           source: "*"
           target: /home/my_app/
-          
+          script: systemctl restart my_app.service
         
