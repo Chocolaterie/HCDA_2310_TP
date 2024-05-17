@@ -64,7 +64,7 @@ app.post('/auth', async (request, response) => {
     }
 
     // Génére un token
-    const token = jwt.sign({ email : loggedUser.email }, SECRET_JWT_KEY, { expiresIn: '60s' });
+    const token = jwt.sign({ email : loggedUser.email }, SECRET_JWT_KEY, { expiresIn: '6000s' });
 
     return performResponseService(response, "200", `Authentification avec succès`, token);
 });

@@ -22,5 +22,21 @@ module.exports = {
 
         // Envoyer une réponse JSON
         return response.json(responseService);
+    },
+
+    errorSurfaceResponseService : (response, code, message, errors) => {
+        const responseService = {
+            code : code,
+            message : message,
+            data : null,
+            errors: errors
+        };
+
+        // Avant d'envoyer une réponse JSON
+        // LOGGER la réponse
+        logger.info(`Code : ${responseService.code} - Message : ${responseService.message}`);
+
+        // Envoyer une réponse JSON
+        return response.json(responseService);
     }
 };

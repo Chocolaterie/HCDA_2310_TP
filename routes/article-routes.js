@@ -2,8 +2,8 @@
 const express = require('express');
 const router = express.Router();
 const { middlewareJWT } = require('../middlewares');
-const { performResponseService } = require('../helpers');
-const { Article, User } = require('../models');
+const { performResponseService, errorSurfaceResponseService } = require('../helpers');
+const { Article, User, Category } = require('../models');
 const { logger } = require('../logger');
 
 router.get('/', async (request, response) => {
@@ -36,8 +36,24 @@ router.get('/:id', async (request, response) => {
 router.post('/save', middlewareJWT, async (request, response) => {
     // Récupérer l'article envoyé
     const articleJson = request.body;
+
+    // CONTROLE DE SURFACE
+    if (articleJson.title.length >= 255){
+        // erreurs des données vérifiés
+        const errors = [
+            { key : "title", message: "Le titre ne doit pas dépasser 255 caractères"}
+        ];
+
+        return errorSurfaceResponseService(response, "901", "Controle de surface incorrect", errors);
+    }
+
+    // CONTROLE METIER
     const idArticle = Number.parseInt(articleJson.id);
 
+    // POUR LA DEMO PAR DEFAUT ASSOCIER A LA CATEGORY : HEHEHEHEHEHEHE
+    const category = await Category.findById('664752924adf3d6f6255a913');
+    console.log(category);
+    
     // UPDATE
     // Essaye de trouver un article existant si dans l'article envoyé y'a un id
     if (articleJson.id){
@@ -79,6 +95,11 @@ router.post('/save', middlewareJWT, async (request, response) => {
 
     // -- ajouter dans le tableau
     const article = new Article(articleJson);
+
+    // - associer un objet
+    article.category = category;
+    // -- many to many
+    //article.categories.push(category)
 
     await article.save();
     
